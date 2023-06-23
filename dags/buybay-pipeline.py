@@ -6,6 +6,7 @@ import pathlib
 import inspect
 import os
 from airflow.operators.python import PythonOperator
+from airflow.operators.bash import BashOperator
 
 default_args = {
     'owner': 'Francisco Nava',
@@ -26,9 +27,10 @@ def data_dir():
     return parent_dir
 
 DATA_DIR = (
-    pathlib.Path(os.environ.get("AIRFLOW_HOME", pathlib.Path("~/airflow").expanduser()))
-    / "data"
+    pathlib.Path(os.environ.get("AIRFLOW_HOME")) / "data"
 )
+
+print(DATA_DIR)
 
 def platform_fee(file):
     '''
@@ -100,18 +102,23 @@ with DAG(
     description='Coding assignment for BuyBay',
     start_date=datetime(2023,6,22),
 ) as dag:
-    extract_job = PythonOperator(
+    # run_this = BashOperator(
+    #     task_id="bash1",
+    #     bash_command="cd ${AIRFLOW_HOME}/data/ && ls",
+    #     #bash_command="cd /opt/***/ && ls",
+    # )
+    platform_fee_job = PythonOperator(
         task_id="platform_fee",
         python_callable=platform_fee,
         op_kwargs={
             "file": DATA_DIR / "sold_products.csv",
         },
     )
-    extract_job = PythonOperator(
+    total_fee_job = PythonOperator(
         task_id="total_fee",
         python_callable=total_fee,
     )
-    extract_job = PythonOperator(
+    transport_job = PythonOperator(
         task_id="total_transport",
         python_callable=total_transport,
     )
