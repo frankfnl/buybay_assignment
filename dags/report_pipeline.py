@@ -144,9 +144,9 @@ def export_report():
         raise Exception("Save directory does not exist")
 
 with DAG(
-    dag_id = 'buybay_pipeline',
+    dag_id = 'report_pipeline',
     default_args=default_args,
-    description='Coding assignment for BuyBay',
+    description='Report Pipeline',
     start_date=datetime(2023,6,22),
 ) as dag:
     platform_fee_job = PythonOperator(
