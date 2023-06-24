@@ -33,15 +33,13 @@ def data_dir():
 
 def platform_fee(prod_file):
     '''
-    Returns a dataframe where platform_fee is filled in, if it wasn't already.
+    Creates a csv file ('report.csv') where platform_fee is filled in, if it wasn't already.
+
+    File is saved to DATA_DIR.
 
             Parameters:
                     prod_file (csv file): dataset with data from sold products,
                     platform_fee has empty values
-
-            Returns:
-                    df (dataframe): dataset with data from sold products
-                    ,platform_fee has no empty values
     '''
 
     df = pd.read_csv(prod_file, parse_dates =['created_at', 'shipped_at'])
@@ -55,37 +53,38 @@ def platform_fee(prod_file):
         else:
             df.loc[index, 'platform_fee'] = 0.11
 
-    return df
+    df.to_csv(DATA_DIR / 'report.csv', index=False)
 
-def transport_fee(df, transport_file):
+def transport_fee(transport_file):
     '''
-    Returns a dataframe where transport_cost is added as a new column.
+    Creates a csv file ('report.csv') where transport_cost is added as a new column.
+
+    File is saved to DATA_DIR.
 
             Parameters:
-                    df (dataframe): dataset with data from sold products
                     transport_file (csv file): dataset that contains transport costs per country
 
-            Returns:
-                    df (dataframe): dataset with total transport_cost column
     '''
+    df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
     df_cost = pd.read_csv(transport_file)
     costs_dict = dict(df_cost.values)
     costs_dict.pop('OTHER')
     df['transport_cost'] = df['country'].apply(lambda x: costs_dict[x] if (x in costs_dict.keys()) else 7.0)
-    return df
+    df.to_csv(DATA_DIR / 'report.csv', index=False)
 
-def grading_fee(df, grading_fee_file, graded_products_file):
+def grading_fee(grading_fee_file, graded_products_file):
     '''
-    Returns a dataframe where grading_fee is added as a new column.
+    Creates a csv file ('report.csv') where grading_fee is added as a new column.
+
+    File is saved to DATA_DIR.
 
             Parameters:
                     df (dataframe): dataset with data from sold products
                     grading_fee_file (csv file): dataset that contains grading fees
                     graded_products_file (csv file): dataset that contains graded products
 
-            Returns:
-                    df (dataframe): dataset with grading_fee column
     '''
+    df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
     df_gfees = pd.read_csv(grading_fee_file)
     gfees_dict = dict(df_gfees.values)
 
@@ -101,49 +100,46 @@ def grading_fee(df, grading_fee_file, graded_products_file):
         return grading_fee
 
     df['grading_fee'] = df['license_plate'].apply(grading_fee, args=(gfees_dict, gproducts_dict))
-    return df
+    df.to_csv(DATA_DIR / 'report.csv', index=False)
 
-def partner_payout(df):
+def partner_payout():
     '''
-    Returns a dataframe where partner_payout is added as a new column.
+    Creates a csv file ('report.csv') where partner_payout is added as a new column.
 
-            Parameters:
-                    df (dataframe): dataset with data from sold products
+    File is saved to DATA_DIR.
+
+            Requirements:
+                    report.csv (file): file with data from sold products
                     Required columns: sold_price, transport_cost, platform_fee, grading_fee
-
-            Returns:
-                    df (dataframe): dataset with partner_payout column
     '''
+    df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
     df['partner_payout'] =  df['sold_price'] - (df['sold_price'] * 0.10) - df['transport_cost'] - df['platform_fee'] - df['grading_fee']
-    return df
+    df.to_csv(DATA_DIR / 'report.csv', index=False)
 
-def total_fees(df):
+def total_fees():
     '''
-    Returns a dataframe where total_fees is added as a new column.
+    Creates a csv file ('report.csv') where total_fees is added as a new column.
 
-            Parameters:
-                    df (dataframe): dataset with data from sold products
+    File is saved to DATA_DIR.
+
+            Requirements:
+                    report.csv (file): file with data from sold products
                     Required columns: sold_price, platform_fee, grading_fee
-
-            Returns:
-                    df (dataframe): dataset with total_fees column
     '''
+    df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
     df['total_fees'] = (df['sold_price'] * 0.10) + df['platform_fee'] + df['grading_fee']
-    return df
+    df.to_csv(DATA_DIR / 'report.csv', index=False)
 
-def export_report(df, save_path):
+def export_report():
     '''
-    Converts report from dataframe to csv file.
+    Saves report file.
 
-            Parameters:
-                    df (dataframe): dataset with all required data for reporting
-                    save_path (path): destination path
-
-            Returns:
-                    report_file (csv file): dataset with all required data for reporting
+                Requirements:
+                    report.csv (file): file with all required data for reporting
     '''
-    if os.path.isdir(save_path):
-        df.to_csv(save_path / 'report.csv')
+    if os.path.isdir(DATA_DIR):
+        df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
+        df.to_csv(DATA_DIR / 'report.csv', index=False)
     else:
         raise Exception("Save directory does not exist")
 
@@ -157,23 +153,22 @@ with DAG(
         task_id='platform_fee',
         python_callable=platform_fee,
         op_kwargs={
-            'file': DATA_DIR / 'sold_products.csv',
+            'prod_file': DATA_DIR / 'sold_products.csv',
         },
     )
     transport_fee_job = PythonOperator(
         task_id='transport_fee',
         python_callable=transport_fee,
         op_kwargs={
-            'df': None,
-            'file': DATA_DIR / 'transport_cost.csv',
+            'transport_file': DATA_DIR / 'transport_cost.csv',
         },
     )
     grading_fee_job = PythonOperator(
         task_id='grading_fee',
         python_callable=grading_fee,
         op_kwargs={
-            'df': None,
-            'file': DATA_DIR / 'grading_fees.csv',
+            'grading_fee_file': DATA_DIR / 'grading_fees.csv',
+            'graded_products_file': DATA_DIR / 'graded_products.csv',
         },
     )
     partner_payout_job = PythonOperator(
@@ -188,3 +183,7 @@ with DAG(
         task_id='export_report',
         python_callable=export_report,
     )
+
+    #Task Dependency
+    platform_fee_job >> transport_fee_job >> grading_fee_job
+    grading_fee_job >> partner_payout_job >> total_fees_job >> export_report_job
