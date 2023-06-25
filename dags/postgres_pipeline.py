@@ -9,6 +9,9 @@ from airflow import settings
 from airflow.models import Connection
 
 def create_conn(conn_id, conn_type, host, schema, login, pwd, port, desc):
+    '''
+    Create a connection object programmatically 
+    '''
     conn = Connection(conn_id=conn_id,
                       conn_type=conn_type,
                       host=host,
@@ -29,6 +32,21 @@ def create_conn(conn_id, conn_type, host, schema, login, pwd, port, desc):
     logging.info(Connection.log_info(conn))
     logging.info(f'Connection {conn_id} is created')
     return conn
+#----------------------------------------------------------------------------------------------------
+import pathlib
+import os
+from sqlalchemy import create_engine
+import pandas as pd
+
+DATA_DIR = (
+    pathlib.Path(os.environ.get("AIRFLOW_HOME")) / "data"
+)
+
+def fill_table():
+    engine = create_engine('postgresql://airflow:airflow@postgres:5432/postgres')
+    df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
+    df.to_sql('report', engine, if_exists='replace', index=False)
+#----------------------------------------------------------------------------------------------------
 
 default_args = {
     'owner': 'Francisco Nava',
@@ -56,17 +74,30 @@ with DAG(
             'desc': 'Postgres Airflow Connection'
         },
     )
-    create_table_job=PostgresOperator(
-        task_id='create_postgres_table',
-        postgres_conn_id = 'postgres_localhost',
-        sql="""
-            create table if not exists dag_runs (
-                dt date,
-                dag_id character varying,
-                primary key (dt, dag_id)
-            )
-        """
+    # create_table_job=PostgresOperator(
+    #     task_id='create_postgres_table',
+    #     postgres_conn_id = 'postgres_localhost',
+    #     sql="""
+    #         CREATE TABLE IF NOT EXISTS report (
+    #             license_plate VARCHAR PRIMARY KEY,
+    #             status VARCHAR,
+    #             platform VARCHAR,
+    #             created_at DATE,
+    #             shipped_at DATE,
+    #             sold_price INT,
+    #             country VARCHAR,
+    #             channel_ref VARCHAR,
+    #             platform_fee FLOAT,
+    #             transport_cost FLOAT,
+    #             grading_fee FLOAT,
+    #             partner_payout FLOAT,
+    #             total_fees FLOAT);
+    #     """
+    # )
+    fill_table_job = PythonOperator(
+        task_id='fill_table',
+        python_callable=fill_table,
     )
 
     #Task Dependency
-    create_conn_job >> create_table_job
+    create_conn_job >> fill_table_job
