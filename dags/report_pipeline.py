@@ -7,7 +7,6 @@ from pathlib import Path
 import inspect
 import os
 from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
 
 DATA_DIR = (
     pathlib.Path(os.environ.get("AIRFLOW_HOME")) / "data"
@@ -148,6 +147,7 @@ with DAG(
     default_args=default_args,
     description='Report Pipeline',
     start_date=datetime(2023,6,22),
+    catchup = False
 ) as dag:
     platform_fee_job = PythonOperator(
         task_id='platform_fee',

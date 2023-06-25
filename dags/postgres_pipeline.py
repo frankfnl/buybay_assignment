@@ -3,7 +3,10 @@ from airflow import DAG
 
 from airflow.operators.python import PythonOperator
 from airflow.providers.postgres.operators.postgres import PostgresOperator
+from airflow.operators.bash import BashOperator
 
+
+#----------------------------------------------------------------------------------------------------
 import logging
 from airflow import settings
 from airflow.models import Connection
@@ -45,7 +48,7 @@ DATA_DIR = (
 def fill_table():
     engine = create_engine('postgresql://airflow:airflow@postgres:5432/postgres')
     df = pd.read_csv(DATA_DIR / 'report.csv', parse_dates =['created_at', 'shipped_at'])
-    df.to_sql('report', engine, if_exists='replace', index=False)
+    df.to_sql('report', engine, if_exists='append', index=False)
 #----------------------------------------------------------------------------------------------------
 
 default_args = {
@@ -59,6 +62,7 @@ with DAG(
     default_args=default_args,
     description='Postgres Pipeline',
     start_date=datetime(2023,6,22),
+    catchup = False
 ) as dag:
     create_conn_job = PythonOperator(
         task_id='create_conn',
@@ -74,30 +78,10 @@ with DAG(
             'desc': 'Postgres Airflow Connection'
         },
     )
-    # create_table_job=PostgresOperator(
-    #     task_id='create_postgres_table',
-    #     postgres_conn_id = 'postgres_localhost',
-    #     sql="""
-    #         CREATE TABLE IF NOT EXISTS report (
-    #             license_plate VARCHAR PRIMARY KEY,
-    #             status VARCHAR,
-    #             platform VARCHAR,
-    #             created_at DATE,
-    #             shipped_at DATE,
-    #             sold_price INT,
-    #             country VARCHAR,
-    #             channel_ref VARCHAR,
-    #             platform_fee FLOAT,
-    #             transport_cost FLOAT,
-    #             grading_fee FLOAT,
-    #             partner_payout FLOAT,
-    #             total_fees FLOAT);
-    #     """
-    # )
     fill_table_job = PythonOperator(
         task_id='fill_table',
         python_callable=fill_table,
     )
 
     #Task Dependency
-    create_conn_job >> fill_table_job
+    create_conn_job >> fill_table_job 
